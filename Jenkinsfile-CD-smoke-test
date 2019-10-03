@@ -1,0 +1,91 @@
+...
+// a part of jenkins pipeline
+
+    stage("Preparing configs") {
+        docker.image(config.agents.node.v8).inside {
+            
+            // TODO refactor below code to cleaner state
+            // adding deployment environment variables to elastic-beanstalk configuration json
+            
+            create_app_json = sh (
+                returnStdout: true,
+                script: """#!/bin/bash
+                ENV=`jq -c '{
+                    ...
+                }    
+                """
+            )
+            
+        }
+    }
+    
+    // Pull from docker repository 
+    stage('Push to ECR') {
+        echo "Pull Docker image from Docker Hub"
+        // Retag to ECR repo name
+  
+        docker.withRegistry(...) {
+            sh "docker pull ${docker_image_name}"
+
+            // Retag to ECR repo name
+            sh "docker tag ${docker_image_name} ${ecrNameWithTag}"
+        }
+
+        docker.withRegistry(url, credential_id") {
+            docker.image(ecrNameWithTag).push("${version_tag}")
+        }
+    }
+
+    docker.image(config.python.v3_6).inside {
+        stage('Deployment') {
+            ...
+        }
+    }
+	
+	stage('Smoke Test') {
+		def test_name = 'dep-smoke-test'  // my own container built for customized test using python, bash, or npm
+        echo "docker name: ${test_name}"
+        def sh_script = """#!/bin/bash
+            export User_name="jimmycui"
+            echo "Current Folder:  \$(pwd)"
+            python --version
+            cd /dep-smoke-test
+            python smoke-test.py --username=\${User_name} --numRun=1 --server=qa
+        """
+	    docker.image("${test_name}").inside('-u root:root') {
+            test_return_code = sh(
+                script: sh_script,
+                returnStatus:true
+            )
+                        
+			echo "ReturnStdout from sh : ${test_return_code}"
+            
+        }
+        
+        if (test_return_code == 0) {
+                echo 'Smoke Test passed '
+                currentBuild.result = 'SUCCESS'
+                // Update deployment log file and groovy file
+                def path_log_file = '/var/jenkins_home/workspace/deploy/my-app-version.log'
+                def readLogContent2 = readFile "${path_log_file}"
+                writeFile file: "{path_log_file}", text: readLogContent2+"\r\n \r\n ${new Date()} \r\n ${version_tag}"
+                echo "Updated deployment log file: $path_log_file"
+                        
+                // Update groovy file to transfer the last version tag to this pipeline 
+                def path_version_groovy = '/var/jenkins_home/workspace/deploy/my-app-version-tag.groovy'
+                writeFile file: "${path_version_groovy}", text: "env.Last_Version_Tag_=\"${version_tag}\""
+                echo "Updted Jenkins Groovy file for build parameter: ${version_tag}"
+
+            }
+            else {
+                echo "Smoke Test failed as code: \n ${test_return_code}"
+                currentBuild.result = 'FAILURE'
+	    }
+	}
+    ...
+    
+               // Display Docker image tag on build 
+                manager.addShortText("${docker_image_name}")
+                manager.addShortText("${deploy_env}")
+                manager.addShortText("${eb_env_name}")
+}
