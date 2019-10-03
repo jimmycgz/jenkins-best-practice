@@ -1,5 +1,8 @@
 ...
 // a part of jenkins pipeline
+// Features:
+// Auto trigger smoke test right after each deployment, by Jenkinsfile
+// Raise error if the return code is not zero from test script running in another container
 
     stage("Preparing configs") {
         docker.image(config.agents.node.v8).inside {
