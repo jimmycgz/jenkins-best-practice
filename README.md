@@ -4,6 +4,7 @@
 https://github.com/jimmycgz/docker-best-practice/blob/master/jks-docker-golang.md
 
 ### CD Pipeline with Test
+Pipeline File: Jenkinsfile-CD-smoke-test
 
 Features:
 * Auto trigger smoke test right after each deployment, by Jenkinsfile
